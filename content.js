@@ -1,12 +1,13 @@
 (function () {
     const TR_PREFIX = '_tr_automation'
-    main()
-
+    const STATUS = {
+        RUNNING: 'RUNNING',
+        STOP: 'STOP'
+    }
     let sybValue = '天津中天启鸿网络科技有限公司'
     let shopName = '飓风金康专卖店'
     let ruleNo = 'CSG4418118164142'
     let ruleCount = 1
-
     let taskStatus = 'STOP' // RUNNING
 
     const steps = {
@@ -24,24 +25,24 @@
         <div class="${TR_PREFIX}-controller">
            <h3>controller</h3>     
            <button id="${TR_PREFIX}-start">开始</button>
-           <button id="${TR_PREFIX}-end">停止</button>
+           <button id="${TR_PREFIX}-stop">停止</button>
         </div>  
     `))
         $(`#${TR_PREFIX}-start`).on('click', function () {
-            startApp().then(() => {
-                console.log('程序OK')
-            }).catch(err => {
-                console.log('程序ERROR')
-                console.error(err)
-            })
+            statusChange(STATUS.RUNNING)
+        })
+        $(`#${TR_PREFIX}-stop`).on('click', function () {
+            statusChange(STATUS.STOP)
         })
     }
 
     function statusChange (status) {
         switch (status) {
-            case 'STOP':
+            case STATUS.STOP:
+                taskStop()
                 break
-            case 'RUNNING':
+            case STATUS.RUNNING:
+                taskRun()
                 break
             default:
                 throw new Error('未知状态')
@@ -63,12 +64,16 @@
 
     function stopPromise() {
         return new Promise((resolve, reject) => {
-            rejectTask = reject
+            rejectTask = () => {
+                console.log('停止')
+                reject('用户停止程序')
+                rejectTask = null
+            }
         })
     }
 
     function taskStop () {
-        rejectTask('用户停止程序')
+        rejectTask && rejectTask()
     }
 
     async function startApp() {
@@ -210,5 +215,5 @@
                 resloveFn = null
             });
     }
-
+    main()
 })()
