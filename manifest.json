@@ -1,0 +1,33 @@
+{
+  "name": "automation-ex",
+  "description" : "自动化点击 -- TR",
+  "version": "0.0.1",
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": "avatar.png"
+  },
+  "manifest_version": 2,
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "MacCtrl+Shift+F"
+      },
+      "description": "Opens popup.html"
+    }
+  },
+  "background": {
+    "scripts": ["lib/jq-3.1.min.js", "lib/md5.min.js", "background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://b.jclps.com/*","https://b.jclps.com/*"],
+      "js": [
+        "lib/jq-3.1.min.js",
+        "content.js"
+      ],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
