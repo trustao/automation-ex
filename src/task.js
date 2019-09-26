@@ -29,6 +29,12 @@ export default class Tasks extends Events {
     this.taskList.push(asyncFn)
   }
 
+  clearStep () {
+    this.stop()
+    this.taskList = []
+    this.__changeStatus(STATUS.READY)
+  }
+
   stop () {
     this.__changeStatus(STATUS.STOP)
     this._runtimeTask = []

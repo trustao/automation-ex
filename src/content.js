@@ -28,10 +28,10 @@ class AutoApp extends Tasks {
   init() {
     this.appendController()
     this.listenStatusChange()
-    this.initSteps()
   }
 
-  initSteps () {
+  combinationTask () {
+    this.isTagTask = false
     // 进入基础资料
     this.addStep(this.goBaseInfoPage)
 
@@ -56,6 +56,73 @@ class AutoApp extends Tasks {
 
     return repeat
   }
+
+  tagTask () {
+    this.isTagTask = true
+    // 进入基础资料
+    this.addStep(this.goBaseInfoPage)
+    // 店铺管理
+    this.addStep(this.goShopManage)
+    // 获得Iframe
+    this.addStep(this.getIframe)
+
+    // 选择筛选条件 查询
+    this.addStep(this.getTagGoodsList)
+
+
+    this.addStep(this.createTagTask())
+  }
+
+  createTagTask () {
+    const repeat = new RepeatTask()
+
+    repeat.addStep(this.checkCheckbox)
+    repeat.addStep(this.submitTag)
+    repeat.addStep(sleep.bind(null, 5000))
+
+    return repeat
+  }
+
+  getTagGoodsList = async () => {
+    await this.selectSearchCondition(this.iframeDoc)
+    await this.triggerSelect('select[name=shopGoodsList_shopGoods-table_length]', 100, this.iframeDoc)
+    await sleep(5000)
+  }
+
+  clickSearch = async () => {
+    const search = await c('#shopGoodsList_queryShopGoodsForm', this.iframeDoc)
+    search.click()
+    await sleep()
+  }
+
+  checkCheckbox = async () => {
+    const dataTable = await c('#shopGoodsList_shopGoods-table', this.iframeDoc)
+    const checkboxs = dataTable.find('td:nth-child(9) input')
+    console.log(checkboxs)
+    checkboxs.click()
+    await sleep()
+  }
+
+  submitTag = async () => {
+    const checkeds = this.iframeDoc.find('td:nth-child(9) input').filter((i, e) => e.checked)
+    if (!checkeds.length) {
+      this.stop()
+      return
+    }
+    this.iframeDoc.find('#shopGoodsList_handleJdDeliver').click()
+    await sleep()
+    const confirm = await c('.modal-footer button:contains("确认")', this.iframeDoc)
+    confirm[0].click()
+    await sleep()
+    const checkRes = await c('#lblSysInfo:contains("操作成功")', this.iframeDoc, 100)
+    if (checkRes) {
+      log('成功')
+    } else {
+      log('失败', this.currentGoodsNo)
+    }
+    this.iframeDoc.find('#sysAlart')[0].click()
+  }
+
 
   checkRule = async () => {
     const rulesTable = await c(`#rulesItemTable input[value=${this.data.ruleNo}]`,  this.iframeDoc)
@@ -145,7 +212,7 @@ class AutoApp extends Tasks {
     await this.triggerSelect('#shopGoodsList_shopId', this.data.shopName, iframeDoc)
     await sleep()
     await this.triggerSelect('#shopGoodsList_jdDeliver', '否', iframeDoc)
-    await this.triggerSelect('#shopGoodsList_isCombination', '否', iframeDoc)
+    await this.triggerSelect('#shopGoodsList_isCombination', this.isTagTask? '是' : '否', iframeDoc)
   }
 
   selectNoErrorGoodsTr (dataTable) {
@@ -177,6 +244,7 @@ class AutoApp extends Tasks {
         case 'READY':
           this.changeFormDisabledStatus(false)
           $(`#${TR_PREFIX}-start`).attr('disabled', false)
+          $(`#${TR_PREFIX}-tag-run`).attr('disabled', false)
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', true)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
@@ -184,6 +252,7 @@ class AutoApp extends Tasks {
         case 'RUNNING':
           this.changeFormDisabledStatus(true)
           $(`#${TR_PREFIX}-start`).attr('disabled', true)
+          $(`#${TR_PREFIX}-tag-run`).attr('disabled', true)
           $(`#${TR_PREFIX}-paused`).attr('disabled', false)
           $(`#${TR_PREFIX}-stop`).attr('disabled', false)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
@@ -191,6 +260,7 @@ class AutoApp extends Tasks {
         case 'PAUSED':
           this.changeFormDisabledStatus(false)
           $(`#${TR_PREFIX}-start`).attr('disabled', true)
+          $(`#${TR_PREFIX}-tag-run`).attr('disabled', true)
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', false)
           $(`#${TR_PREFIX}-continue`).attr('disabled', false)
@@ -198,6 +268,7 @@ class AutoApp extends Tasks {
         case 'STOP':
           this.changeFormDisabledStatus(false)
           $(`#${TR_PREFIX}-start`).attr('disabled', false)
+          $(`#${TR_PREFIX}-tag-run`).attr('disabled', false)
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', true)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
@@ -227,9 +298,20 @@ class AutoApp extends Tasks {
          <label for="${TR_PREFIX}-ruleCount">数量<input type="text" id="${TR_PREFIX}-ruleCount"></label><br>
          <button id="${TR_PREFIX}-submit">确认</button>
        </div>
+       <button  id="${TR_PREFIX}-tag-run">
+         <svg viewBox="64 64 896 896" focusable="false" class="" data-icon="right-circle" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M666.7 505.5l-246-178A8 8 0 0 0 408 334v46.9c0 10.2 4.9 19.9 13.2 25.9L566.6 512 421.2 617.2c-8.3 6-13.2 15.6-13.2 25.9V690c0 6.5 7.4 10.3 12.7 6.5l246-178c4.4-3.2 4.4-9.8 0-13z"></path><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"></path></svg>
+         打标   
+       </button>
       </div>
     `))
     $(`#${TR_PREFIX}-start`).on('click',  () => {
+      this.clearStep()
+      this.combinationTask()
+      this.run()
+    })
+    $(`#${TR_PREFIX}-tag-run`).on('click',  () => {
+      this.clearStep()
+      this.tagTask()
       this.run()
     })
     $(`#${TR_PREFIX}-stop`).on('click',  () => {
