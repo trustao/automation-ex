@@ -1,5 +1,6 @@
 import Events from './event'
 import log from './logger'
+import {sleep} from "./util";
 
 const STATUS = {
   READY: 'READY',
@@ -13,6 +14,7 @@ export default class Tasks extends Events {
     super()
     this.taskList = []
     this.status = STATUS.READY
+    this.stepCount = 0
   }
 
   __changeStatus (status) {
@@ -69,12 +71,31 @@ export default class Tasks extends Events {
     }
   }
 
+  checkAppRunning = async () => {
+    const instance = this.currentChildTask ? this.currentChildTask : this
+    const current = instance.stepCount
+    await sleep()
+    let tryCount = 10
+    while (tryCount) {
+      log('checkRunning', instance.stepCount, current)
+      if (instance.stepCount !== current) {
+        tryCount = 0
+        return true
+      } else {
+        await sleep()
+        tryCount--
+      }
+    }
+    return instance.stepCount !== current
+  }
+
   run = async () => {
     this._runtimeTask = [...this.taskList]
     await this.continue()
   }
 
   runStep = async () => {
+    this.stepCount++
     if (this.status !== STATUS.RUNNING) {
       log('step STOP', this.status)
       return false

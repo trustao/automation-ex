@@ -1,16 +1,8 @@
 import Tasks, {RepeatTask} from './task'
 import log from './logger'
+import {sleep} from "./util";
 
 const TR_PREFIX = '_tr_automation'
-
-async function sleep(ms = 500) {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve()
-    }, ms)
-  })
-}
-
 
 class AutoApp extends Tasks {
   constructor() {
@@ -28,6 +20,7 @@ class AutoApp extends Tasks {
   init() {
     this.appendController()
     this.listenStatusChange()
+    this.catchError()
   }
 
   combinationTask () {
@@ -106,7 +99,8 @@ class AutoApp extends Tasks {
   submitTag = async () => {
     const checkeds = this.iframeDoc.find('td:nth-child(9) input').filter((i, e) => e.checked)
     if (!checkeds.length) {
-      this.stop()
+      await sleep(5000)
+      await this.clickSearch()
       return
     }
     this.iframeDoc.find('#shopGoodsList_handleJdDeliver').click()
@@ -120,6 +114,7 @@ class AutoApp extends Tasks {
     } else {
       log('失败', this.currentGoodsNo)
     }
+    await sleep()
     this.iframeDoc.find('#sysAlart')[0].click()
   }
 
@@ -207,16 +202,21 @@ class AutoApp extends Tasks {
 
 
   selectSearchCondition = async (iframeDoc) => {
-    await this.triggerSelect('#shopGoodsList_deptId', this.data.sybValue, iframeDoc)
-    await sleep()
-    await this.triggerSelect('#shopGoodsList_shopId', this.data.shopName, iframeDoc)
-    await sleep()
+    if (this.data.sybValue) {
+      await this.triggerSelect('#shopGoodsList_deptId', this.data.sybValue, iframeDoc)
+      await sleep()
+    }
+    if (this.data.shopName) {
+      await this.triggerSelect('#shopGoodsList_shopId', this.data.shopName, iframeDoc)
+      await sleep()
+    }
+
     await this.triggerSelect('#shopGoodsList_jdDeliver', '否', iframeDoc)
     await this.triggerSelect('#shopGoodsList_isCombination', this.isTagTask? '是' : '否', iframeDoc)
   }
 
   selectNoErrorGoodsTr (dataTable) {
-    return this.getTr(dataTable.find('tr:nth-child(2)'))
+    return this.getTr(dataTable.find('tbody tr:first-child'))
   }
 
   getTr (tr) {
@@ -236,6 +236,26 @@ class AutoApp extends Tasks {
     }
   }
 
+  catchError () {
+    window.addEventListener('unhandledrejection', event => {
+      $(`.${TR_PREFIX}-controller`).css({'background': 'rgba(255,12,17,0.3)', 'pointer-events': 'none'})
+      this.checkAppRunning().then(res => {
+        if (!res) {
+          c('.modal:visible', this.iframeDoc, 100).then(el => {
+            if (el)el.click()
+            this.stop()
+            this.run()
+            $(`.${TR_PREFIX}-controller`).css({'background': 'rgba(0,255,27,0.3)', 'pointer-events': 'auto'})
+          }).catch(e => {
+            this.stop()
+            this.run()
+            $(`.${TR_PREFIX}-controller`).css({'background': 'rgba(0,255,27,0.3)', 'pointer-events': 'auto'})
+          })
+        }
+      })
+    });
+  }
+
 
 
   listenStatusChange () {
@@ -248,6 +268,7 @@ class AutoApp extends Tasks {
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', true)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
+          $(`.${TR_PREFIX}-controller`).css('background', 'rgba(0, 0, 0, .3)')
           break
         case 'RUNNING':
           this.changeFormDisabledStatus(true)
@@ -256,6 +277,7 @@ class AutoApp extends Tasks {
           $(`#${TR_PREFIX}-paused`).attr('disabled', false)
           $(`#${TR_PREFIX}-stop`).attr('disabled', false)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
+          $(`.${TR_PREFIX}-controller`).css('background', 'rgba(0,255,27,0.3)')
           break
         case 'PAUSED':
           this.changeFormDisabledStatus(false)
@@ -264,6 +286,7 @@ class AutoApp extends Tasks {
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', false)
           $(`#${TR_PREFIX}-continue`).attr('disabled', false)
+          $(`.${TR_PREFIX}-controller`).css('background', 'rgba(0, 0, 0, .3)')
           break
         case 'STOP':
           this.changeFormDisabledStatus(false)
@@ -272,6 +295,7 @@ class AutoApp extends Tasks {
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', true)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
+          $(`.${TR_PREFIX}-controller`).css('background', 'rgba(0, 0, 0, .3)')
           break
       }
     })
@@ -296,6 +320,7 @@ class AutoApp extends Tasks {
          <label for="${TR_PREFIX}-shopName">店铺名称<input type="text" id="${TR_PREFIX}-shopName"></label><br>
          <label for="${TR_PREFIX}-ruleNo">编码<input type="text" id="${TR_PREFIX}-ruleNo"></label><br>
          <label for="${TR_PREFIX}-ruleCount">数量<input type="text" id="${TR_PREFIX}-ruleCount"></label><br>
+         <p style="font-size: 12px;color: #888;">修改后请点击确认再开始任务。</p>
          <button id="${TR_PREFIX}-submit">确认</button>
        </div>
        <button  id="${TR_PREFIX}-tag-run">

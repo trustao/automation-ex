@@ -26,7 +26,7 @@
 }
 ._tr_automation-controller:hover {
   transform: scale(1);
-  background: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 1)!important;
 }
 ._tr_automation-controller:hover:after {
   display: none;
