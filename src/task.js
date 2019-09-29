@@ -8,19 +8,21 @@ const STATUS = {
   STOP: 'STOP',
   PAUSED: 'PAUSED'
 }
-
+let id = 0
 export default class Tasks extends Events {
   constructor() {
     super()
     this.taskList = []
     this.status = STATUS.READY
     this.stepCount = 0
+    this.id = id++
   }
 
   __changeStatus (status) {
     if (status === this.status) return
+    const old = this.status
     this.status = status
-    this.emit('changeStatus', status)
+    this.emit('changeStatus', status, old)
   }
 
   addStep (asyncFn) {
@@ -29,6 +31,18 @@ export default class Tasks extends Events {
       return
     }
     this.taskList.push(asyncFn)
+  }
+
+  addAssertStep (assertAsyncFn) {
+    if (this.status !== STATUS.READY) {
+      console.error('任务已进行，无法添加')
+      return
+    }
+    const func = async () => {
+      const resFn = await assertAsyncFn()
+      this._runtimeTask.unshift(resFn)
+    }
+    this.taskList.push(func)
   }
 
   clearStep () {
@@ -53,6 +67,7 @@ export default class Tasks extends Events {
       await new Promise(resolve => {
         this.currentChildTask.once('taskEnd', () => {
           this.currentChildTask = null
+          this.off('changeStatus', this.changeHandlerOnChild)
           resolve()
         })
       })
@@ -62,11 +77,11 @@ export default class Tasks extends Events {
       next = await this.runStep()
     }
     if (!this.currentChildTask && !this._runtimeTask.length) {
-      log('任务结束')
+      // log('任务结束', this.id)
       this.__changeStatus(STATUS.STOP)
       this.emit('taskEnd')
     } else {
-      log('任务暂停')
+      // log('任务暂停', this.id)
       this.emit('taskPaused')
     }
   }
@@ -97,7 +112,6 @@ export default class Tasks extends Events {
   runStep = async () => {
     this.stepCount++
     if (this.status !== STATUS.RUNNING) {
-      log('step STOP', this.status)
       return false
     }
     const asyncFn = this._runtimeTask.shift()
@@ -114,37 +128,37 @@ export default class Tasks extends Events {
   }
 
   connectChildTask = async (childTask) => {
-    let resolveFn
     this.currentChildTask = childTask
+    this.on('changeStatus', this.changeHandlerOnChild)
+    childTask.once('taskEnd', () => {
+      this.currentChildTask = null
+      this.off('changeStatus', this.changeHandlerOnChild)
+      this.__childResolveFn(true)
+    })
     childTask.run()
-    const changeHandler = (status) => {
-      console.log(status)
-      switch (status) {
-        case STATUS.PAUSED:
-          console.log('修改状态')
-          childTask.__changeStatus(status)
-          break
-        case STATUS.STOP:
-          childTask.__changeStatus(status)
-          resolveFn(false)
-          this.off('changeStatus', changeHandler)
-          this.currentChildTask = null
-          break
-        case STATUS.RUNNING:
-          if (childTask.status === STATUS.PAUSED) {
-            childTask.__changeStatus(status)
-            childTask.continue()
-          }
-          break
-      }
-    }
-    this.on('changeStatus', changeHandler)
-    childTask.on('taskEnd', () => {
-      resolveFn(true)
-    })
     return await new Promise(resolve => {
-      resolveFn = resolve
+      this.__childResolveFn = resolve
     })
+  }
+
+  changeHandlerOnChild = (status, old) => {
+    switch (status) {
+      case STATUS.PAUSED:
+        this.currentChildTask.__changeStatus(status)
+        break
+      case STATUS.STOP:
+        this.currentChildTask.__changeStatus(status)
+        this.__childResolveFn(false)
+        this.off('changeStatus', this.changeHandlerOnChild)
+        this.currentChildTask = null
+        break
+      case STATUS.RUNNING:
+        if (this.currentChildTask.status === STATUS.PAUSED) {
+          this.currentChildTask.__changeStatus(status)
+          this.currentChildTask.continue()
+        }
+        break
+    }
   }
 }
 
@@ -168,7 +182,6 @@ export class RepeatTask extends Tasks {
     if (!this._runtimeTask.length) {
       this.emit('cycleEnd')
     }
-    console.log(this.status)
     if (this.status === STATUS.RUNNING) {
       this._runtimeTask = [...this.taskList]
       return this.runCycle
@@ -180,6 +193,15 @@ export class RepeatTask extends Tasks {
 
   continue = async () => {
     this.__changeStatus(STATUS.RUNNING)
+    if (this.currentChildTask) {
+      await new Promise(resolve => {
+        this.currentChildTask.once('taskEnd', () => {
+          this.currentChildTask = null
+          this.off('changeStatus', this.changeHandlerOnChild)
+          resolve()
+        })
+      })
+    }
     let nextFn = this.runCycle
     while (nextFn) {
       nextFn = await nextFn()
@@ -187,8 +209,4 @@ export class RepeatTask extends Tasks {
     log('停止')
   }
 
-  run = async () => {
-    this._runtimeTask = [...this.taskList]
-    await this.continue()
-  }
 }

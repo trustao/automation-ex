@@ -1,12 +1,13 @@
 {
   "name": "translation-ex",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "",
   "directories": {
     "lib": "dist/lib"
   },
   "scripts": {
-    "dev": "./node_modules/.bin/webpack --watch --config webpack.config.js"
+    "dev": "./node_modules/.bin/webpack --watch --config webpack.config.js",
+    "build": "env NODE_ENV=pro ./node_modules/.bin/webpack --config webpack.config.js"
   },
   "repository": {
     "type": "git",

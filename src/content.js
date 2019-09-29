@@ -50,6 +50,30 @@ class AutoApp extends Tasks {
     return repeat
   }
 
+  tagSingleTask () {
+    this.isTagTask = true
+    // 进入基础资料
+    this.addStep(this.goBaseInfoPage)
+
+
+    this.addStep(this.createSingleTask())
+  }
+
+  createSingleTask () {
+    const repeat = new RepeatTask()
+
+    // 店铺管理
+    repeat.addStep(this.goShopManage)
+    // 获得Iframe
+    repeat.addStep(this.getIframe)
+    // 选择筛选条件 查询
+    repeat.addStep(this.getTagGoodsList)
+
+    repeat.addAssertStep(this.checkFirstCheckbox)
+
+    return repeat
+  }
+
   tagTask () {
     this.isTagTask = true
     // 进入基础资料
@@ -74,6 +98,36 @@ class AutoApp extends Tasks {
     repeat.addStep(sleep.bind(null, 5000))
 
     return repeat
+  }
+
+  refreshShopStock = async () => {
+    const btn = await c('#refreshShopStock', this.iframeDoc)
+    btn.click()
+    await sleep()
+  }
+
+  checkFirstCheckbox = async () => {
+    const dataTable = await c('#shopGoodsList_shopGoods-table', this.iframeDoc)
+    const checkbox = dataTable.find('tbody tr:first-child td:nth-child(9) input')
+    const isDisable =  checkbox.prop('disabled')
+    if (isDisable) {
+      return this.openJDSend()
+    } else {
+      checkbox.click()
+      return this.submitTag
+    }
+  }
+
+  openJDSend () {
+    const childTask = new Tasks()
+
+    // 进入规则页 查询
+    childTask.addStep(this.goRulePage)
+    // 刷新规则
+    childTask.addStep(this.refreshShopStock)
+    // 提交
+    childTask.addStep(this.submitRules)
+    return childTask
   }
 
   getTagGoodsList = async () => {
@@ -265,6 +319,7 @@ class AutoApp extends Tasks {
           this.changeFormDisabledStatus(false)
           $(`#${TR_PREFIX}-start`).attr('disabled', false)
           $(`#${TR_PREFIX}-tag-run`).attr('disabled', false)
+          $(`#${TR_PREFIX}-tag-single-run`).attr('disabled', false)
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', true)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
@@ -274,6 +329,7 @@ class AutoApp extends Tasks {
           this.changeFormDisabledStatus(true)
           $(`#${TR_PREFIX}-start`).attr('disabled', true)
           $(`#${TR_PREFIX}-tag-run`).attr('disabled', true)
+          $(`#${TR_PREFIX}-tag-single-run`).attr('disabled', true)
           $(`#${TR_PREFIX}-paused`).attr('disabled', false)
           $(`#${TR_PREFIX}-stop`).attr('disabled', false)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
@@ -283,6 +339,7 @@ class AutoApp extends Tasks {
           this.changeFormDisabledStatus(false)
           $(`#${TR_PREFIX}-start`).attr('disabled', true)
           $(`#${TR_PREFIX}-tag-run`).attr('disabled', true)
+          $(`#${TR_PREFIX}-tag-single-run`).attr('disabled', true)
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', false)
           $(`#${TR_PREFIX}-continue`).attr('disabled', false)
@@ -292,6 +349,7 @@ class AutoApp extends Tasks {
           this.changeFormDisabledStatus(false)
           $(`#${TR_PREFIX}-start`).attr('disabled', false)
           $(`#${TR_PREFIX}-tag-run`).attr('disabled', false)
+          $(`#${TR_PREFIX}-tag-single-run`).attr('disabled', false)
           $(`#${TR_PREFIX}-paused`).attr('disabled', true)
           $(`#${TR_PREFIX}-stop`).attr('disabled', true)
           $(`#${TR_PREFIX}-continue`).attr('disabled', true)
@@ -325,7 +383,11 @@ class AutoApp extends Tasks {
        </div>
        <button  id="${TR_PREFIX}-tag-run">
          <svg viewBox="64 64 896 896" focusable="false" class="" data-icon="right-circle" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M666.7 505.5l-246-178A8 8 0 0 0 408 334v46.9c0 10.2 4.9 19.9 13.2 25.9L566.6 512 421.2 617.2c-8.3 6-13.2 15.6-13.2 25.9V690c0 6.5 7.4 10.3 12.7 6.5l246-178c4.4-3.2 4.4-9.8 0-13z"></path><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"></path></svg>
-         打标   
+         批量打标   
+       </button>
+       <button  id="${TR_PREFIX}-tag-single-run">
+         <svg viewBox="64 64 896 896" focusable="false" class="" data-icon="right-circle" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M666.7 505.5l-246-178A8 8 0 0 0 408 334v46.9c0 10.2 4.9 19.9 13.2 25.9L566.6 512 421.2 617.2c-8.3 6-13.2 15.6-13.2 25.9V690c0 6.5 7.4 10.3 12.7 6.5l246-178c4.4-3.2 4.4-9.8 0-13z"></path><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"></path></svg>
+         逐条打标   
        </button>
       </div>
     `))
@@ -337,6 +399,11 @@ class AutoApp extends Tasks {
     $(`#${TR_PREFIX}-tag-run`).on('click',  () => {
       this.clearStep()
       this.tagTask()
+      this.run()
+    })
+    $(`#${TR_PREFIX}-tag-single-run`).on('click',  () => {
+      this.clearStep()
+      this.tagSingleTask()
       this.run()
     })
     $(`#${TR_PREFIX}-stop`).on('click',  () => {
