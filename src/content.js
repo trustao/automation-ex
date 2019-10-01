@@ -9,7 +9,7 @@ class AutoApp extends Tasks {
     super()
     this.data = {
       sybValue: '天津中天启鸿网络科技有限公司',
-      shopName: '飓风合新专卖店',
+      shopName: '美佳运动户外专营店',
       ruleNo: 'CSG4418118164142',
       ruleCount: 1,
       page: 1
@@ -52,6 +52,7 @@ class AutoApp extends Tasks {
   }
 
   tagSingleTask () {
+    this.nextPage = this.data.page
     this.isTagTask = true
     // 进入基础资料
     this.addStep(this.goBaseInfoPage)
@@ -76,6 +77,7 @@ class AutoApp extends Tasks {
   }
 
   tagTask () {
+    this.nextPage = this.data.page
     this.isTagTask = true
     // 进入基础资料
     this.addStep(this.goBaseInfoPage)
@@ -136,7 +138,8 @@ class AutoApp extends Tasks {
     await this.triggerSelect('select[name=shopGoodsList_shopGoods-table_length]', 100, this.iframeDoc)
     await sleep(3000)
     if (this.data.page > 1) {
-      const page = await c(`#shopGoodsList_shopGoods-table_paginate a:contains(${this.data.page})`, this.iframeDoc)
+      const page = await c(`#shopGoodsList_shopGoods-table_paginate a:contains(3)`, this.iframeDoc)
+      page.text(this.data.page)
       page[0].click()
       console.log('page:', this.data.page)
     }
@@ -149,9 +152,15 @@ class AutoApp extends Tasks {
   }
 
   checkCheckbox = async () => {
+    if (this.nextPage !== this.data.page) {
+      const next = await c(`#shopGoodsList_shopGoods-table_paginate a:contains(3)`, this.iframeDoc)
+      next.text(this.nextPage)
+      next[0].click()
+      await sleep(3000)
+      console.log('打标下一页')
+    }
     const dataTable = await c('#shopGoodsList_shopGoods-table', this.iframeDoc)
     const checkboxs = dataTable.find('td:nth-child(9) input')
-    console.log(checkboxs)
     checkboxs.click()
     await sleep()
   }
@@ -168,15 +177,13 @@ class AutoApp extends Tasks {
     const confirm = await c('.modal-footer button:contains("确认")', this.iframeDoc)
     confirm[0].click()
     await sleep()
-    const checkRes = await c('#lblSysInfo:contains("操作成功")', this.iframeDoc, 100)
-    if (checkRes) {
-      log('成功')
-    } else {
-      log('失败', this.currentGoodsNo)
-      this.markError()
+    try {
+      await c('#lblSysInfo:contains("操作成功")', this.iframeDoc, 50)
+    } catch (e) {
+      this.nextPage++
     }
     await sleep()
-    this.iframeDoc.find('#sysAlart')[0].click()
+    this.iframeDoc.find('.modal:visible')[0].click()
   }
 
 
@@ -197,7 +204,7 @@ class AutoApp extends Tasks {
     confirm[0].click()
     await sleep()
     try {
-      await c('#lblSysInfo:contains("操作成功！")', this.iframeDoc, 100)
+      await c('#lblSysInfo:contains("操作成功！")', this.iframeDoc, 50)
       log('成功', this.currentGoodsNo)
     } catch (e) {
       log('失败', this.currentGoodsNo)
@@ -228,7 +235,8 @@ class AutoApp extends Tasks {
     search.click()
     await sleep()
     if (this.data.page > 1) {
-      const page = await c(`#shopGoodsList_shopGoods-table_paginate a:contains(${this.data.page})`, this.iframeDoc)
+      const page = await c(`#shopGoodsList_shopGoods-table_paginate a:contains(3)`, this.iframeDoc)
+      page.text(this.data.page)
       page[0].click()
       console.log('page:', this.data.page)
       await sleep(1000)
@@ -315,7 +323,7 @@ class AutoApp extends Tasks {
           if (this.currentGoodsNo) {
             this.markError()
           }
-          c('.modal:visible', this.iframeDoc, 100).then(el => {
+          c('.modal:visible', this.iframeDoc, 10).then(el => {
             if (el)el.click()
             this.stop()
             this.run()
@@ -412,13 +420,7 @@ class AutoApp extends Tasks {
          <label for="${TR_PREFIX}-ruleNo">编码<input type="text" id="${TR_PREFIX}-ruleNo"></label><br>
          <label for="${TR_PREFIX}-ruleCount">数量<input type="text" id="${TR_PREFIX}-ruleCount"></label><br>
          <label for="${TR_PREFIX}-page">页码
-           <select id="${TR_PREFIX}-page">
-               <option value="1">1</option>      
-               <option value="2">2</option>      
-               <option value="3">3</option>      
-               <option value="4">4</option>      
-               <option value="5">5</option>      
-           </select>
+           <input id="${TR_PREFIX}-page" />
          </label><br>
          <p style="font-size: 12px;color: #888;">修改后请点击确认再开始任务。</p>
          <button id="${TR_PREFIX}-submit">确认</button>
