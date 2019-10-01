@@ -137,3 +137,18 @@
 ._tr_automation-controller:hover ._tr_automation-form{
   display: block;
 }
+
+#_tr_automation-log {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  background: #FFF;
+  box-shadow: 0 0 10px 3px #CCC;
+}
+
+#_tr_automation-log p {
+  color: #ff5453;
+  font-size: 12px;
+  margin: 10px;
+}

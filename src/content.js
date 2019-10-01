@@ -9,9 +9,10 @@ class AutoApp extends Tasks {
     super()
     this.data = {
       sybValue: '天津中天启鸿网络科技有限公司',
-      shopName: '飓风金康专卖店',
+      shopName: '飓风合新专卖店',
       ruleNo: 'CSG4418118164142',
-      ruleCount: 1
+      ruleCount: 1,
+      page: 1
     }
     this.errorSpu = []
     this.init()
@@ -133,7 +134,12 @@ class AutoApp extends Tasks {
   getTagGoodsList = async () => {
     await this.selectSearchCondition(this.iframeDoc)
     await this.triggerSelect('select[name=shopGoodsList_shopGoods-table_length]', 100, this.iframeDoc)
-    await sleep(5000)
+    await sleep(3000)
+    if (this.data.page > 1) {
+      const page = await c(`#shopGoodsList_shopGoods-table_paginate a:contains(${this.data.page})`, this.iframeDoc)
+      page[0].click()
+      console.log('page:', this.data.page)
+    }
   }
 
   clickSearch = async () => {
@@ -167,6 +173,7 @@ class AutoApp extends Tasks {
       log('成功')
     } else {
       log('失败', this.currentGoodsNo)
+      this.markError()
     }
     await sleep()
     this.iframeDoc.find('#sysAlart')[0].click()
@@ -189,15 +196,12 @@ class AutoApp extends Tasks {
     const confirm = await c('.modal-footer button:contains("确认")', this.iframeDoc)
     confirm[0].click()
     await sleep()
-    const checkRes = await c('#lblSysInfo:contains("操作成功！")', this.iframeDoc, 100)
-    if (checkRes) {
+    try {
+      await c('#lblSysInfo:contains("操作成功！")', this.iframeDoc, 100)
       log('成功', this.currentGoodsNo)
-    } else {
+    } catch (e) {
       log('失败', this.currentGoodsNo)
-      this.errorSpu.push({
-        no: this.currentGoodsNo,
-        count: 1
-      })
+      this.markError()
     }
     this.currentGoodsNo = ''
     this.iframeDoc.find('#sysAlart').click()
@@ -223,6 +227,12 @@ class AutoApp extends Tasks {
     const search = await c('#shopGoodsList_queryShopGoodsForm', this.iframeDoc)
     search.click()
     await sleep()
+    if (this.data.page > 1) {
+      const page = await c(`#shopGoodsList_shopGoods-table_paginate a:contains(${this.data.page})`, this.iframeDoc)
+      page[0].click()
+      console.log('page:', this.data.page)
+      await sleep(1000)
+    }
   }
 
   goRulePage = async () => {
@@ -279,15 +289,22 @@ class AutoApp extends Tasks {
     }
     const no = tr.find('td:nth-child(6)').text()
     const isError = this.errorSpu.find(e => e.no === no)
-    if (isError) {
-      isError.count++
-      if (isError.count > 3) {
-        return this.getTr(tr.next())
-      }
+    if (isError && isError.count > 2) {
+      this.updateErrorLog()
+      return this.getTr(tr.next())
     } else {
       this.currentGoodsNo = no
       return tr
     }
+  }
+
+  updateErrorLog () {
+    $(`#${TR_PREFIX}-log`).remove()
+    $('body').append(`
+      <div id="${`${TR_PREFIX}-log`}">
+        ${this.errorSpu.filter(i => i.count >= 3).reduce((str, i) => str + `<p>${i.no}, 重试3次， 失败</p>`, '')}   
+      </div> 
+    `)
   }
 
   catchError () {
@@ -295,6 +312,9 @@ class AutoApp extends Tasks {
       $(`.${TR_PREFIX}-controller`).css({'background': 'rgba(255,12,17,0.3)', 'pointer-events': 'none'})
       this.checkAppRunning().then(res => {
         if (!res) {
+          if (this.currentGoodsNo) {
+            this.markError()
+          }
           c('.modal:visible', this.iframeDoc, 100).then(el => {
             if (el)el.click()
             this.stop()
@@ -310,7 +330,20 @@ class AutoApp extends Tasks {
     });
   }
 
-
+  markError () {
+    if (!this.currentGoodsNo) return
+    const error = this.errorSpu.find(i => i.no === this.currentGoodsNo)
+    if (error) {
+      error.count++
+    } else {
+      this.errorSpu.push({
+        no: this.currentGoodsNo,
+        count: 1
+      })
+    }
+    console.log(this.errorSpu)
+    this.currentGoodsNo = ''
+  }
 
   listenStatusChange () {
     this.on('changeStatus', (status) => {
@@ -378,6 +411,15 @@ class AutoApp extends Tasks {
          <label for="${TR_PREFIX}-shopName">店铺名称<input type="text" id="${TR_PREFIX}-shopName"></label><br>
          <label for="${TR_PREFIX}-ruleNo">编码<input type="text" id="${TR_PREFIX}-ruleNo"></label><br>
          <label for="${TR_PREFIX}-ruleCount">数量<input type="text" id="${TR_PREFIX}-ruleCount"></label><br>
+         <label for="${TR_PREFIX}-page">页码
+           <select id="${TR_PREFIX}-page">
+               <option value="1">1</option>      
+               <option value="2">2</option>      
+               <option value="3">3</option>      
+               <option value="4">4</option>      
+               <option value="5">5</option>      
+           </select>
+         </label><br>
          <p style="font-size: 12px;color: #888;">修改后请点击确认再开始任务。</p>
          <button id="${TR_PREFIX}-submit">确认</button>
        </div>
