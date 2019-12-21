@@ -8,11 +8,13 @@ class AutoApp extends Tasks {
   constructor() {
     super()
     this.data = {
-      sybValue: '天津中天启鸿网络科技有限公司',
-      shopName: '美佳运动户外专营店',
+      sybValue: '濮阳晰和雅居商贸有限公司',
+      shopName: '天峰运动户外专营店',
       ruleNo: 'CSG4418118164142',
       ruleCount: 1,
-      page: 1
+      page: 1,
+      JP: false,
+      ZT: true
     }
     this.errorSpu = []
     this.init()
@@ -51,9 +53,52 @@ class AutoApp extends Tasks {
     return repeat
   }
 
+  clearRulesTask () {
+    this.isTagTask = true
+    // 进入基础资料
+    this.addStep(this.goBaseInfoPage)
+
+    this.addStep(this.clearRuleChildTask())
+  }
+
+  clearRuleChildTask () {
+    const repeat = new RepeatTask()
+
+    // 店铺管理
+    repeat.addStep(this.goShopManage)
+    // 获得Iframe
+    repeat.addStep(this.getIframe)
+    // 选择筛选条件 查询
+    repeat.addStep(this.searchGoods)
+    // 进入规则页 查询
+    repeat.addStep(this.goRulePage)
+
+    // 检查规则 提交
+    repeat.addStep(this.clearRules)
+
+    return repeat
+  }
+
+  clearRules = async () => {
+    const button = await c('#deleteRules', this.iframeDoc)
+    button[0].click()
+    await sleep()
+    const confirm = await c('.modal-footer button:contains("确认")', this.iframeDoc)
+    confirm[0].click()
+    await sleep()
+    try {
+      await c('#lblSysInfo:contains("操作成功！")', this.iframeDoc, 50)
+      log('成功', this.currentGoodsNo)
+    } catch (e) {
+      log('失败', this.currentGoodsNo)
+      this.markError()
+    }
+    this.currentGoodsNo = ''
+    this.iframeDoc.find('.modal:visible').click()
+  }
+
   tagSingleTask () {
     this.nextPage = this.data.page
-    this.isTagTask = true
     // 进入基础资料
     this.addStep(this.goBaseInfoPage)
 
@@ -78,7 +123,6 @@ class AutoApp extends Tasks {
 
   tagTask () {
     this.nextPage = this.data.page
-    this.isTagTask = true
     // 进入基础资料
     this.addStep(this.goBaseInfoPage)
     // 店铺管理
@@ -283,8 +327,8 @@ class AutoApp extends Tasks {
       await sleep()
     }
 
-    await this.triggerSelect('#shopGoodsList_jdDeliver', '否', iframeDoc)
-    await this.triggerSelect('#shopGoodsList_isCombination', this.isTagTask? '是' : '否', iframeDoc)
+    await this.triggerSelect('#shopGoodsList_jdDeliver', this.data.JP ? '是' : '否', iframeDoc)
+    await this.triggerSelect('#shopGoodsList_isCombination', this.data.ZT ? '是' : '否', iframeDoc)
   }
 
   selectNoErrorGoodsTr (dataTable) {
@@ -401,6 +445,16 @@ class AutoApp extends Tasks {
   }
 
   appendController() {
+    $(`#${TR_PREFIX}-start`).on('click',  () => {
+      this.clearStep()
+      this.combinationTask()
+      this.run()
+    })
+    $(`#${TR_PREFIX}-tag-run`).on('click',  () => {
+      this.clearStep()
+      this.tagTask()
+      this.run()
+    })
     $('body').append($(`
       <div class="${TR_PREFIX}-controller">
        <h3>controller</h3>
@@ -417,6 +471,14 @@ class AutoApp extends Tasks {
        <div class="${TR_PREFIX}-form">
          <label for="${TR_PREFIX}-sybValue">事业部<input type="text" id="${TR_PREFIX}-sybValue"></label><br>
          <label for="${TR_PREFIX}-shopName">店铺名称<input type="text" id="${TR_PREFIX}-shopName"></label><br>
+         <label style="display: flex;justify-content: center;align-items: center;" for="${TR_PREFIX}-JP">
+            <span style="width: 50px;">京配</span>
+            <input type="checkbox" id="${TR_PREFIX}-JP">
+         </label><br>
+         <label style="display: flex;justify-content: center;align-items: center;" for="${TR_PREFIX}-ZT">
+            <span style="width: 50px;">组套</span>
+            <input type="checkbox" id="${TR_PREFIX}-ZT">
+         </label><br>
          <label for="${TR_PREFIX}-ruleNo">编码<input type="text" id="${TR_PREFIX}-ruleNo"></label><br>
          <label for="${TR_PREFIX}-ruleCount">数量<input type="text" id="${TR_PREFIX}-ruleCount"></label><br>
          <label for="${TR_PREFIX}-page">页码
@@ -433,21 +495,20 @@ class AutoApp extends Tasks {
          <svg viewBox="64 64 896 896" focusable="false" class="" data-icon="right-circle" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M666.7 505.5l-246-178A8 8 0 0 0 408 334v46.9c0 10.2 4.9 19.9 13.2 25.9L566.6 512 421.2 617.2c-8.3 6-13.2 15.6-13.2 25.9V690c0 6.5 7.4 10.3 12.7 6.5l246-178c4.4-3.2 4.4-9.8 0-13z"></path><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"></path></svg>
          逐条打标   
        </button>
+       <button  id="${TR_PREFIX}-clear-rules">
+         <svg viewBox="64 64 896 896" focusable="false" class="" data-icon="right-circle" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M666.7 505.5l-246-178A8 8 0 0 0 408 334v46.9c0 10.2 4.9 19.9 13.2 25.9L566.6 512 421.2 617.2c-8.3 6-13.2 15.6-13.2 25.9V690c0 6.5 7.4 10.3 12.7 6.5l246-178c4.4-3.2 4.4-9.8 0-13z"></path><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"></path></svg>
+         清除规则   
+       </button>
       </div>
     `))
-    $(`#${TR_PREFIX}-start`).on('click',  () => {
-      this.clearStep()
-      this.combinationTask()
-      this.run()
-    })
-    $(`#${TR_PREFIX}-tag-run`).on('click',  () => {
-      this.clearStep()
-      this.tagTask()
-      this.run()
-    })
     $(`#${TR_PREFIX}-tag-single-run`).on('click',  () => {
       this.clearStep()
       this.tagSingleTask()
+      this.run()
+    })
+    $(`#${TR_PREFIX}-clear-rules`).on('click',  () => {
+      this.clearStep()
+      this.clearRulesTask()
       this.run()
     })
     $(`#${TR_PREFIX}-stop`).on('click',  () => {
@@ -460,12 +521,19 @@ class AutoApp extends Tasks {
       this.paused()
     }).attr('disabled', true)
     Object.keys(this.data).forEach(key => {
-      $(`#${TR_PREFIX}-${key}`).val(this.data[key])
+      const $el = $(`#${TR_PREFIX}-${key}`)
+      if (typeof this.data[key] === 'boolean') {
+        $el.prop('checked', this.data[key])
+      } else {
+        $el.val(this.data[key])
+      }
     })
     $(`#${TR_PREFIX}-submit`).on('click',  () => {
       Object.keys(this.data).forEach(key => {
-        this.data[key] = $(`#${TR_PREFIX}-${key}`).val()
+        const $el = $(`#${TR_PREFIX}-${key}`)
+        this.data[key] = $el[0].type === 'checkbox' ? $el.prop('checked') : $el.val()
       })
+      console.log(this.data)
     })
   }
 
