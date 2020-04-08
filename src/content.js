@@ -8,14 +8,15 @@ class AutoApp extends Tasks {
   constructor() {
     super()
     this.data = {
-      sybValue: '濮阳晰和雅居商贸有限公司',
-      shopName: '天峰运动户外专营店',
+      sybValue: '天津中天启鸿网络科技有限公司',
+      shopName: '飓风金康专卖店',
       ruleNo: 'CSG4418118164142',
       ruleCount: 1,
       page: 1,
       JP: false,
       ZT: true
     }
+    this.userStop = false
     this.errorSpu = []
     this.init()
   }
@@ -83,7 +84,7 @@ class AutoApp extends Tasks {
     const button = await c('#deleteRules', this.iframeDoc)
     button[0].click()
     await sleep()
-    const confirm = await c('.modal-footer button:contains("确认")', this.iframeDoc)
+    const confirm = await c('.modal:visible .modal-footer button:contains("确认")', this.iframeDoc)
     confirm[0].click()
     await sleep()
     try {
@@ -210,15 +211,15 @@ class AutoApp extends Tasks {
   }
 
   submitTag = async () => {
-    const checkeds = this.iframeDoc.find('td:nth-child(9) input').filter((i, e) => e.checked)
-    if (!checkeds.length) {
-      await sleep(5000)
-      await this.clickSearch()
-      return
-    }
+    // const checkeds = this.iframeDoc.find('td:nth-child(9) input').filter((i, e) => e.checked)
+    // if (!checkeds.length) {
+    //   await sleep(5000)
+    //   await this.clickSearch()
+    //   return
+    // }
     this.iframeDoc.find('#shopGoodsList_handleJdDeliver').click()
     await sleep()
-    const confirm = await c('.modal-footer button:contains("确认")', this.iframeDoc)
+    const confirm = await c('.modal:visible .modal-footer button:contains("确认")', this.iframeDoc)
     confirm[0].click()
     await sleep()
     try {
@@ -244,7 +245,7 @@ class AutoApp extends Tasks {
     const button = await c('#submitRules', this.iframeDoc)
     button[0].click()
     await sleep()
-    const confirm = await c('.modal-footer button:contains("确认")', this.iframeDoc)
+    const confirm = await c('.modal:visible .modal-footer button:contains("确认")', this.iframeDoc)
     confirm[0].click()
     await sleep()
     try {
@@ -361,6 +362,8 @@ class AutoApp extends Tasks {
 
   catchError () {
     window.addEventListener('unhandledrejection', event => {
+      if (this.userStop) return
+
       $(`.${TR_PREFIX}-controller`).css({'background': 'rgba(255,12,17,0.3)', 'pointer-events': 'none'})
       this.checkAppRunning().then(res => {
         if (!res) {
@@ -445,16 +448,6 @@ class AutoApp extends Tasks {
   }
 
   appendController() {
-    $(`#${TR_PREFIX}-start`).on('click',  () => {
-      this.clearStep()
-      this.combinationTask()
-      this.run()
-    })
-    $(`#${TR_PREFIX}-tag-run`).on('click',  () => {
-      this.clearStep()
-      this.tagTask()
-      this.run()
-    })
     $('body').append($(`
       <div class="${TR_PREFIX}-controller">
        <h3>controller</h3>
@@ -501,23 +494,40 @@ class AutoApp extends Tasks {
        </button>
       </div>
     `))
+    $(`#${TR_PREFIX}-start`).on('click',  () => {
+      this.userStop = false
+      this.clearStep()
+      this.combinationTask()
+      this.run()
+    })
+    $(`#${TR_PREFIX}-tag-run`).on('click',  () => {
+      this.userStop = false
+      this.clearStep()
+      this.tagTask()
+      this.run()
+    })
     $(`#${TR_PREFIX}-tag-single-run`).on('click',  () => {
+      this.userStop = false
       this.clearStep()
       this.tagSingleTask()
       this.run()
     })
     $(`#${TR_PREFIX}-clear-rules`).on('click',  () => {
+      this.userStop = false
       this.clearStep()
       this.clearRulesTask()
       this.run()
     })
     $(`#${TR_PREFIX}-stop`).on('click',  () => {
+      this.userStop = true
       this.stop()
     }).attr('disabled', true)
     $(`#${TR_PREFIX}-continue`).on('click',  () => {
+      this.userStop = false
       this.continue()
     }).attr('disabled', true)
     $(`#${TR_PREFIX}-paused`).on('click',  () => {
+      this.userStop = true
       this.paused()
     }).attr('disabled', true)
     Object.keys(this.data).forEach(key => {
