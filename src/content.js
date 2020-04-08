@@ -8,9 +8,9 @@ class AutoApp extends Tasks {
   constructor() {
     super()
     this.data = {
-      sybValue: '天津中天启鸿网络科技有限公司',
-      shopName: '飓风金康专卖店',
-      ruleNo: 'CSG4418118164142',
+      sybValue: '邱县峰光电子商务有限公司',
+      shopName: '花语奇萌霏微专卖店',
+      ruleNo: 'CSG4418342193204',
       ruleCount: 1,
       page: 1,
       JP: false,
@@ -156,7 +156,7 @@ class AutoApp extends Tasks {
 
   checkFirstCheckbox = async () => {
     const dataTable = await c('#shopGoodsList_shopGoods-table', this.iframeDoc)
-    const checkbox = dataTable.find('tbody tr:first-child td:nth-child(9) input')
+    const checkbox = dataTable.find('tbody tr:first-child td:nth-child(10) input')
     const isDisable =  checkbox.prop('disabled')
     if (isDisable) {
       return this.openJDSend()
@@ -205,7 +205,7 @@ class AutoApp extends Tasks {
       console.log('打标下一页')
     }
     const dataTable = await c('#shopGoodsList_shopGoods-table', this.iframeDoc)
-    const checkboxs = dataTable.find('td:nth-child(9) input')
+    const checkboxs = dataTable.find('td:nth-child(10) input')
     checkboxs.click()
     await sleep()
   }
